@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, ArrowLeft, Clock, Calendar, CheckCircle2, AlertCircle, Phone, MapPin, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { WorkflowTracker } from '@/components/sales/WorkflowTracker';
 import { format } from 'date-fns';
 import { use } from 'react';
@@ -142,23 +143,36 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
                 {order.items?.map((item: any, idx: number) => {
                   return (
                     <div key={item.id} className="p-5 hover:bg-slate-50/30 dark:hover:bg-slate-800/30 transition-colors">
-                      <div className="flex flex-col sm:flex-row gap-5">
+                      <div className="flex flex-row gap-4 sm:gap-5">
                         
                         {/* Fabric Preview */}
-                        <div className="w-full sm:w-24 shrink-0">
-                          <div className="aspect-square rounded-xl bg-slate-100 dark:bg-slate-800 border border-border/50 overflow-hidden relative">
-                            {item.fabricVariant?.imageUrl || item.fabricVariant?.design?.defaultImageUrl ? (
-                              <img 
-                                src={item.fabricVariant.imageUrl || item.fabricVariant.design?.defaultImageUrl} 
-                                alt={item.fabricVariant.design?.designName || 'Product'} 
-                                className="object-cover w-full h-full" 
-                              />
-                            ) : (
-                              <div className="absolute inset-0 flex flex-col items-center justify-center opacity-40">
-                                <Search className="w-6 h-6 mb-1" />
+                        <div className="w-20 sm:w-24 shrink-0">
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <div className="aspect-square rounded-xl bg-slate-100 dark:bg-slate-800 border border-border/50 overflow-hidden relative cursor-zoom-in">
+                                {item.fabricVariant?.imageUrl || item.fabricVariant?.design?.defaultImageUrl ? (
+                                  <img 
+                                    src={item.fabricVariant.imageUrl || item.fabricVariant.design?.defaultImageUrl} 
+                                    alt={item.fabricVariant.design?.designName || 'Product'} 
+                                    className="object-cover w-full h-full hover:scale-105 transition-transform duration-300" 
+                                  />
+                                ) : (
+                                  <div className="absolute inset-0 flex flex-col items-center justify-center opacity-40">
+                                    <Search className="w-6 h-6 mb-1" />
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl bg-transparent border-none shadow-none flex justify-center">
+                              {item.fabricVariant?.imageUrl || item.fabricVariant?.design?.defaultImageUrl ? (
+                                <img 
+                                  src={item.fabricVariant.imageUrl || item.fabricVariant.design?.defaultImageUrl} 
+                                  className="max-w-full max-h-[80vh] object-contain rounded-xl shadow-2xl" 
+                                  alt="Product Zoom"
+                                />
+                              ) : null}
+                            </DialogContent>
+                          </Dialog>
                           <div className="mt-2 text-center">
                             <Badge variant="secondary" className="text-[9px] uppercase font-bold">
                               {item.fabricVariant?.color || 'Unknown'}

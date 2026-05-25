@@ -157,7 +157,8 @@ export function WorkflowTracker({ invoiceId, stitchAssignments, paymentStatus, d
                 </Badge>
               </div>
 
-              <div className="relative flex justify-between items-center w-full px-2">
+              <div className="w-full overflow-x-auto pb-8 pt-2 scrollbar-hide">
+                <div className="relative flex justify-between items-center w-full min-w-[500px] px-4">
                 {/* Background Line */}
                 <div className="absolute left-[5%] right-[5%] top-1/2 -translate-y-1/2 h-1 bg-slate-200 dark:bg-slate-800 rounded-full z-0" />
                 
@@ -213,6 +214,7 @@ export function WorkflowTracker({ invoiceId, stitchAssignments, paymentStatus, d
                     </button>
                   );
                 })}
+                </div>
               </div>
             </div>
           );

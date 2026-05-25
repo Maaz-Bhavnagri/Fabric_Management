@@ -31,6 +31,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -224,6 +225,53 @@ export default function SalesTable({
                 {t(`sales.${order.paymentStatus || 'pending'}`)}
               </Badge>
             </div>
+
+            {/* Product Previews */}
+            {order.items && order.items.length > 0 && (
+              <div className="flex flex-col gap-2 bg-slate-50/50 dark:bg-slate-900/50 p-2.5 rounded-xl border border-border/30">
+                {order.items.slice(0, 3).map((item: any) => (
+                  <div key={item.id} className="flex items-center gap-3">
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 border overflow-hidden shrink-0 cursor-zoom-in">
+                          {item.fabricVariant?.imageUrl || item.fabricVariant?.design?.defaultImageUrl ? (
+                            <img 
+                              src={item.fabricVariant?.imageUrl || item.fabricVariant?.design?.defaultImageUrl} 
+                              className="w-full h-full object-cover" 
+                              alt="Product"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center opacity-40"><Package className="w-4 h-4" /></div>
+                          )}
+                        </div>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl bg-transparent border-none shadow-none flex justify-center">
+                        {item.fabricVariant?.imageUrl || item.fabricVariant?.design?.defaultImageUrl ? (
+                          <img 
+                            src={item.fabricVariant?.imageUrl || item.fabricVariant?.design?.defaultImageUrl} 
+                            className="max-w-full max-h-[80vh] object-contain rounded-xl shadow-2xl" 
+                            alt="Product Zoom"
+                          />
+                        ) : null}
+                      </DialogContent>
+                    </Dialog>
+                    <div className="flex flex-col flex-1 min-w-0">
+                      <span className="text-xs font-bold text-foreground line-clamp-1">
+                        {item.fabricVariant?.design?.designName || 'Custom Product'}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground line-clamp-1">
+                        {item.fabricVariant?.variantName || item.fabricVariant?.color || 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {order.items.length > 3 && (
+                  <div className="text-[10px] font-bold text-muted-foreground pl-13 pt-1">
+                    +{order.items.length - 3} more items...
+                  </div>
+                )}
+              </div>
+            )}
             
             <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-900 p-2.5 rounded-xl border border-border/50">
                <div className="flex items-center gap-2">
@@ -393,16 +441,54 @@ export default function SalesTable({
                     </div>
                   </div>
                 </td>
-                <td className="py-4 px-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-blue-50 dark:bg-blue-950/20 flex items-center justify-center">
-                      <Package className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                <td className="py-4 px-4 max-w-[250px]">
+                  {order.items && order.items.length > 0 ? (
+                    <div className="flex flex-col gap-3">
+                      {order.items.slice(0, 3).map((item: any) => (
+                        <div key={item.id} className="flex items-center gap-3">
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 border overflow-hidden shrink-0 cursor-zoom-in">
+                                {item.fabricVariant?.imageUrl || item.fabricVariant?.design?.defaultImageUrl ? (
+                                  <img 
+                                    src={item.fabricVariant?.imageUrl || item.fabricVariant?.design?.defaultImageUrl} 
+                                    className="w-full h-full object-cover" 
+                                    alt="Product"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center opacity-40"><Package className="w-4 h-4" /></div>
+                                )}
+                              </div>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl bg-transparent border-none shadow-none flex justify-center">
+                              {item.fabricVariant?.imageUrl || item.fabricVariant?.design?.defaultImageUrl ? (
+                                <img 
+                                  src={item.fabricVariant?.imageUrl || item.fabricVariant?.design?.defaultImageUrl} 
+                                  className="max-w-full max-h-[80vh] object-contain rounded-xl shadow-2xl" 
+                                  alt="Product Zoom"
+                                />
+                              ) : null}
+                            </DialogContent>
+                          </Dialog>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-sm font-bold text-foreground line-clamp-1">
+                              {item.fabricVariant?.design?.designName || 'Custom Product'}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground line-clamp-1">
+                              {item.fabricVariant?.variantName || item.fabricVariant?.color || 'N/A'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                      {order.items.length > 3 && (
+                        <div className="text-[10px] font-bold text-muted-foreground pl-12 pt-1">
+                          +{order.items.length - 3} more items...
+                        </div>
+                      )}
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold text-foreground">{order.itemsCount || 0}</span>
-                      <span className="text-[9px] text-muted-foreground font-medium">items</span>
-                    </div>
-                  </div>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">-</span>
+                  )}
                 </td>
                 <td className="py-4 px-4">
                     <div className="flex flex-col items-end gap-1">

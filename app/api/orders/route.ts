@@ -173,7 +173,7 @@ export async function GET(request: NextRequest) {
 
     let q = admin
       .from('invoices')
-      .select('*, customer:customers(full_name, phone), items:invoice_items(id, invoice_item_stitch_types(id, workflow_status, stitch_types(id, name)))', { count: 'exact' })
+      .select('*, customer:customers(full_name, phone), items:invoice_items(id, fabric_variant:fabric_variants(id, color, variant_name, image_url, design:fabric_designs(id, design_name, default_image_url)), invoice_item_stitch_types(id, workflow_status, stitch_types(id, name)))', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -184,11 +184,22 @@ export async function GET(request: NextRequest) {
     if (error) throw error;
 
     const rows = (invoices ?? []).map((inv: Record<string, unknown>) => {
-      const items = inv.items as Array<{ id: string; invoice_item_stitch_types: Array<{ id: string; workflow_status: string; stitch_types: { id: string; name: string } }> }> | undefined;
+      const items = inv.items as Array<{ id: string; fabric_variant?: any; invoice_item_stitch_types: Array<{ id: string; workflow_status: string; stitch_types: { id: string; name: string } }> }> | undefined;
       const cust = inv.customer as { full_name: string; phone: string } | null;
       
       const mappedItems = items?.map(i => ({
         id: i.id,
+        fabricVariant: i.fabric_variant ? {
+          id: i.fabric_variant.id,
+          color: i.fabric_variant.color,
+          variantName: i.fabric_variant.variant_name,
+          imageUrl: i.fabric_variant.image_url,
+          design: i.fabric_variant.design ? {
+            id: i.fabric_variant.design.id,
+            designName: i.fabric_variant.design.design_name,
+            defaultImageUrl: i.fabric_variant.design.default_image_url
+          } : undefined
+        } : undefined,
         stitchAssignments: i.invoice_item_stitch_types?.map(st => ({
           id: st.id,
           workflowStatus: st.workflow_status,

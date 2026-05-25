@@ -4,11 +4,11 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Scissors,
-  Paintbrush2, // Using as needle/stitching
-  Disc3,       // Using as buttons
-  Wind,        // Steam press
-  CheckCircle2,
-  PackageCheck,
+  Shirt,
+  CircleDot,
+  Waves,
+  BadgeCheck,
+  Truck,
   Check,
   AlertCircle
 } from 'lucide-react';
@@ -32,11 +32,11 @@ export type WorkflowStatus = 'fabric_cutting' | 'stitching' | 'buttons' | 'steam
 
 const STAGES: { id: WorkflowStatus; label: string; icon: React.ElementType }[] = [
   { id: 'fabric_cutting', label: 'Cutting', icon: Scissors },
-  { id: 'stitching', label: 'Stitching', icon: Paintbrush2 },
-  { id: 'buttons', label: 'Buttons', icon: Disc3 },
-  { id: 'steam_press', label: 'Press', icon: Wind },
-  { id: 'complete', label: 'Complete', icon: CheckCircle2 },
-  { id: 'delivered', label: 'Delivered', icon: PackageCheck },
+  { id: 'stitching', label: 'Stitching', icon: Shirt },
+  { id: 'buttons', label: 'Buttons', icon: CircleDot },
+  { id: 'steam_press', label: 'Press', icon: Waves },
+  { id: 'complete', label: 'Complete', icon: BadgeCheck },
+  { id: 'delivered', label: 'Delivered', icon: Truck },
 ];
 
 interface StitchAssignment {
@@ -157,8 +157,8 @@ export function WorkflowTracker({ invoiceId, stitchAssignments, paymentStatus, d
                 </Badge>
               </div>
 
-              <div className="w-full overflow-x-auto pb-8 pt-2 scrollbar-hide">
-                <div className="relative flex justify-between items-center w-full min-w-[500px] px-4">
+              <div className="w-full relative pb-6 pt-2">
+                <div className="relative flex justify-between items-center w-full px-1 sm:px-4">
                 {/* Background Line */}
                 <div className="absolute left-[5%] right-[5%] top-1/2 -translate-y-1/2 h-1 bg-slate-200 dark:bg-slate-800 rounded-full z-0" />
                 
@@ -183,7 +183,7 @@ export function WorkflowTracker({ invoiceId, stitchAssignments, paymentStatus, d
                     >
                       <motion.div
                         className={cn(
-                          "w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors duration-300",
+                          "w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center border-2 transition-colors duration-300",
                           isActive 
                             ? "bg-primary border-primary text-primary-foreground shadow-[0_0_15px_rgba(var(--primary),0.5)] scale-110" 
                             : isCompleted
@@ -193,20 +193,20 @@ export function WorkflowTracker({ invoiceId, stitchAssignments, paymentStatus, d
                         whileHover={{ scale: 1.15 }}
                         whileTap={{ scale: 0.95 }}
                       >
-                        <Icon className="w-3.5 h-3.5" />
+                        <Icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                         
                         {isCompleted && !isActive && (
                           <motion.div 
                             initial={{ scale: 0 }}
                             animate={{ scale: 1 }}
-                            className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-500 rounded-full flex items-center justify-center border border-white dark:border-slate-950"
+                            className="absolute -bottom-1 -right-1 w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 bg-green-500 rounded-full flex items-center justify-center border border-white dark:border-slate-950"
                           >
-                            <Check className="w-2.5 h-2.5 text-white" />
+                            <Check className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-white" />
                           </motion.div>
                         )}
                       </motion.div>
                       <span className={cn(
-                        "text-[9px] font-bold uppercase tracking-tighter whitespace-nowrap absolute -bottom-5",
+                        "text-[6px] sm:text-[9px] font-bold uppercase tracking-tighter sm:tracking-normal whitespace-nowrap absolute -bottom-4 sm:-bottom-5",
                         isActive ? "text-primary" : isCompleted ? "text-foreground" : "text-muted-foreground"
                       )}>
                         {stage.label}
@@ -225,7 +225,7 @@ export function WorkflowTracker({ invoiceId, stitchAssignments, paymentStatus, d
         <AlertDialogContent className="rounded-3xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              {confirmModal?.targetStatus === 'delivered' ? <PackageCheck className="w-5 h-5 text-emerald-500" /> : <CheckCircle2 className="w-5 h-5 text-primary" />}
+              {confirmModal?.targetStatus === 'delivered' ? <Truck className="w-5 h-5 text-emerald-500" /> : <BadgeCheck className="w-5 h-5 text-primary" />}
               Confirm Status Change
             </AlertDialogTitle>
             <AlertDialogDescription className="text-sm">

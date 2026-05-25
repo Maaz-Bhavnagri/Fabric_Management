@@ -65,6 +65,7 @@ export async function registerAction(formData: FormData) {
         email: data.user.email,
         full_name: fullName,
         role: 'owner',
+        updated_at: new Date().toISOString(),
       },
       { onConflict: 'id' },
     )

@@ -93,6 +93,8 @@ const orderSchema = z
     isDraft: z.boolean().default(false),
     meta: z.record(z.string(), z.unknown()).optional(),
     notes: z.string().optional(),
+    expectedDeliveryDate: z.string().optional().nullable(),
+    priority: z.enum(['Low', 'Normal', 'Urgent']).optional().nullable(),
     items: z.array(orderItemSchema).min(1),
   })
   .superRefine((data, ctx) => {
@@ -171,7 +173,7 @@ export async function GET(request: NextRequest) {
 
     let q = admin
       .from('invoices')
-      .select('*, customer:customers(full_name, phone), items:invoice_items(id)', { count: 'exact' })
+      .select('*, customer:customers(full_name, phone), items:invoice_items(id, invoice_item_stitch_types(id, workflow_status, stitch_types(id, name)))', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -182,8 +184,17 @@ export async function GET(request: NextRequest) {
     if (error) throw error;
 
     const rows = (invoices ?? []).map((inv: Record<string, unknown>) => {
-      const items = inv.items as unknown[] | undefined;
+      const items = inv.items as Array<{ id: string; invoice_item_stitch_types: Array<{ id: string; workflow_status: string; stitch_types: { id: string; name: string } }> }> | undefined;
       const cust = inv.customer as { full_name: string; phone: string } | null;
+      
+      const mappedItems = items?.map(i => ({
+        id: i.id,
+        stitchAssignments: i.invoice_item_stitch_types?.map(st => ({
+          id: st.id,
+          workflowStatus: st.workflow_status,
+          stitchTypeName: st.stitch_types?.name || 'Unknown'
+        })) || []
+      })) || [];
       return {
         id: inv.id,
         invoiceNumber: inv.invoice_number,
@@ -195,6 +206,9 @@ export async function GET(request: NextRequest) {
         paymentStatus: inv.payment_status,
         paymentMethod: inv.payment_method,
         itemsCount: items?.length || 0,
+        expectedDeliveryDate: inv.expected_delivery_date,
+        priority: inv.priority ?? 'Normal',
+        items: mappedItems,
         customer: cust ? { fullName: cust.full_name, phone: cust.phone } : null,
       };
     });

@@ -82,6 +82,16 @@ export interface InvoiceRow {
   paymentMethod?: string
   itemsCount?: number
   customer?: { fullName: string; phone: string } | null
+  expectedDeliveryDate?: string | null
+  priority?: 'Low' | 'Normal' | 'Urgent'
+  items?: Array<{
+    id: string
+    stitchAssignments?: Array<{
+      id: string
+      workflowStatus: 'fabric_cutting' | 'stitching' | 'buttons' | 'steam_press' | 'complete' | 'delivered' | string
+      stitchTypeName: string
+    }>
+  }>
 }
 
 export interface InvoiceDetail extends InvoiceRow {
@@ -109,6 +119,8 @@ export interface InvoiceDetail extends InvoiceRow {
         quantity: number
         tailorPrice: number
       }[]
+      workflowStatus?: 'fabric_cutting' | 'stitching' | 'buttons' | 'steam_press' | 'complete' | 'delivered'
+      id?: string
     }[]
     fabricVariant?: {
       id: string

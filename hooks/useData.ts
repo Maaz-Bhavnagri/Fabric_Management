@@ -57,7 +57,7 @@ export function useInventoryData(searchTerm?: string) {
     error: error instanceof Error ? error.message : null,
     addFabric: (fabric: unknown) => addMutation.mutateAsync(fabric),
     updateFabric: (id: string, updates: unknown) => updateMutation.mutateAsync({ id, updates }),
-    deleteFabric: (id: string) => deleteMutation.mutateAsync(id),
+    deleteFabric: async (id: string): Promise<void> => { await deleteMutation.mutateAsync(id) },
   };
 }
 
@@ -85,6 +85,7 @@ export function useSalesData(filterStatus?: string, includeDraft = true) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardMetrics'] });
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
     },
   });
 
@@ -121,7 +122,7 @@ export function useSalesData(filterStatus?: string, includeDraft = true) {
     updateOrderStatus: (id: string, status: string) => updateStatusMutation.mutateAsync({ id, status }),
     createOrder: (order: CounterOrderRequest) => createOrderMutation.mutateAsync(order),
     updateOrder: (id: string, order: CounterOrderRequest) => updateOrderMutation.mutateAsync({ id, order }),
-    deleteOrder: (id: string) => deleteOrderMutation.mutateAsync(id),
+    deleteOrder: async (id: string): Promise<void> => { await deleteOrderMutation.mutateAsync(id) },
     getCustomerByPhone,
     getOrderById,
   };

@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useState } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
 import type { InvoiceRow, InvoiceDetail } from '@/lib/app-types';
 import { generateOrderPdf } from '@/lib/pdf-utils';
@@ -19,7 +20,8 @@ import {
   CreditCard,
   MapPin,
   AlertCircle,
-  FileEdit
+  FileEdit,
+  Eye
 } from 'lucide-react';
 import { 
   DropdownMenu, 
@@ -30,11 +32,11 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { ConfirmDeleteDialog } from '@/components/common/ConfirmDeleteDialog';
 import OrderDetailsModal from './OrderDetailsModal';
+import { WorkflowTracker } from './WorkflowTracker';
 
 interface SalesTableProps {
   orders: InvoiceRow[];
@@ -146,6 +148,25 @@ export default function SalesTable({
     }
   };
 
+  const isOverdue = (date?: string | null, status?: string) => {
+    if (!date) return false;
+    const isPending = !orderHasDeliveredStatus(status); // We'll simplify this to check if payment/delivery is pending
+    if (!isPending) return false;
+    const due = new Date(date);
+    due.setHours(23, 59, 59, 999);
+    return new Date() > due;
+  };
+
+  const orderHasDeliveredStatus = (status?: string) => false; // Just a stub, we will check actual items later.
+
+  const getPriorityColor = (priority?: string | null) => {
+    switch (priority) {
+      case 'Urgent': return 'bg-red-50 text-red-600 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900';
+      case 'Low': return 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-900/40 dark:text-slate-400 dark:border-slate-800';
+      default: return 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900';
+    }
+  };
+
   if (orders.length === 0) {
     return (
       <div className="text-center py-20 bg-card rounded-2xl border border-dashed border-border mt-6">
@@ -161,21 +182,42 @@ export default function SalesTable({
     <>
       {/* 📱 Mobile Card View */}
       <div className="grid grid-cols-1 gap-4 md:hidden mt-6">
-        {orders.map((order) => (
-          <div key={order.id} className="bg-card rounded-2xl border border-border p-4 shadow-sm flex flex-col gap-3">
+        {orders.map((order) => {
+          const overdue = isOverdue(order.expectedDeliveryDate, order.paymentStatus);
+          const allAssignments = order.items?.flatMap(i => i.stitchAssignments || []) || [];
+          
+          return (
+          <div 
+            key={order.id} 
+            className={cn("bg-card rounded-2xl border p-4 shadow-sm flex flex-col gap-3 transition-colors", overdue ? "border-red-300 dark:border-red-900/50 bg-red-50/10 dark:bg-red-950/10" : "border-border")}
+          >
             <div className="flex justify-between items-start">
               <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-black text-foreground">#{order.invoiceNumber}</span>
+                {order.expectedDeliveryDate ? (
+                  <div className={cn("flex items-center gap-1.5 text-sm font-black", overdue ? "text-red-600 dark:text-red-400" : "text-foreground")}>
+                    <Clock className="w-4 h-4" />
+                    Due: {new Date(order.expectedDeliveryDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    {overdue && <span className="text-[9px] uppercase tracking-widest ml-1 animate-pulse">(Overdue)</span>}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-sm font-black text-muted-foreground/50">
+                    <Clock className="w-4 h-4" /> No Date
+                  </div>
+                )}
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[10px] font-bold text-muted-foreground bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">#{order.invoiceNumber}</span>
+                  {order.priority && order.priority !== 'Normal' && (
+                    <Badge variant="outline" className={cn("text-[8px] px-1.5 py-0.5 rounded-md font-bold tracking-wider uppercase border", getPriorityColor(order.priority))}>
+                      {order.priority}
+                    </Badge>
+                  )}
                   {order.isDraft && (
                     <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5 rounded-md font-medium">DRAFT</Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium mt-1">
+                <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium mt-1.5">
                   <Calendar className="w-3 h-3" />
-                  {new Date(order.createdAt).toLocaleDateString()}
-                  <span className="text-muted-foreground/50">•</span>
-                  {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  Ordered: {new Date(order.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                 </div>
               </div>
               <Badge variant="outline" className={cn("px-2 py-0.5 rounded-full text-[9px] font-black uppercase border shadow-sm", getStatusColor(order.paymentStatus || 'pending'))}>
@@ -208,12 +250,15 @@ export default function SalesTable({
                 <Package className="w-3.5 h-3.5" />
                 <span>{order.itemsCount || 0} items</span>
               </div>
-              <div className="flex items-center gap-2">
-                {onEditOrder && (
-                  <Button variant="outline" size="sm" onClick={() => onEditOrder(order.id)} className="h-8 text-xs rounded-lg font-bold gap-1.5">
-                    <FileEdit className="w-3.5 h-3.5" /> Edit
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => window.location.href = `/orders/${order.id}`} className="h-8 text-xs rounded-lg font-bold gap-1.5">
+                    <Eye className="w-3.5 h-3.5" /> View
                   </Button>
-                )}
+                  {onEditOrder && (
+                    <Button variant="outline" size="sm" onClick={() => onEditOrder(order.id)} className="h-8 text-xs rounded-lg font-bold gap-1.5">
+                      <FileEdit className="w-3.5 h-3.5" /> Edit
+                    </Button>
+                  )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="secondary" size="icon" className="w-8 h-8 rounded-lg">
@@ -221,6 +266,9 @@ export default function SalesTable({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                    <DropdownMenuItem onClick={() => window.location.href = `/orders/${order.id}`} className="gap-2 font-medium">
+                      <Eye className="w-4 h-4" /> View Details
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleDownload(order)} className="gap-2 font-medium">
                       {downloadingId === order.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Download
                     </DropdownMenuItem>
@@ -238,8 +286,17 @@ export default function SalesTable({
                 </DropdownMenu>
               </div>
             </div>
+
+            {allAssignments.length > 0 && (
+              <WorkflowTracker 
+                invoiceId={order.id}
+                stitchAssignments={allAssignments as any}
+                paymentStatus={order.paymentStatus}
+                dueAmount={order.dueAmount || 0}
+              />
+            )}
           </div>
-        ))}
+        )})}
       </div>
 
       {/* 💻 Desktop Table View */}
@@ -248,7 +305,7 @@ export default function SalesTable({
           <thead>
             <tr className="bg-slate-50/50 dark:bg-slate-900/50 border-b border-border">
               <th className="text-left py-4 px-4 text-muted-foreground text-[10px] font-black uppercase tracking-widest">
-                {t('sales.orderId')}
+                Timeline & ID
               </th>
               <th className="text-left py-4 px-4 text-muted-foreground text-[10px] font-black uppercase tracking-widest">
                 {t('sales.customer')}
@@ -268,27 +325,46 @@ export default function SalesTable({
               <th className="py-4 px-4 w-16"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border/50 bg-card">
-            {orders.map((order) => (
-              <tr
-                key={order.id}
-                className="group hover:bg-slate-50/30 dark:hover:bg-slate-900/30 transition-all duration-200"
-              >
+          {orders.map((order) => {
+            const overdue = isOverdue(order.expectedDeliveryDate, order.paymentStatus);
+            const allAssignments = order.items?.flatMap(i => i.stitchAssignments || []) || [];
+
+            return (
+            <tbody 
+              key={order.id}
+              className={cn(
+                "group bg-card border-b border-border hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors",
+                overdue ? "bg-red-50/10 dark:bg-red-950/10 hover:bg-red-50/30 dark:hover:bg-red-950/30" : ""
+              )}
+            >
+              <tr>
                 <td className="py-4 px-4">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-black text-foreground">#{order.invoiceNumber}</span>
-                      {order.isDraft && (
-                        <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5 rounded-md font-medium">
-                          DRAFT
+                  <div className="flex flex-col gap-1.5">
+                    {order.expectedDeliveryDate ? (
+                      <div className={cn("flex items-center gap-1.5 text-sm font-black", overdue ? "text-red-600 dark:text-red-400" : "text-foreground")}>
+                        <Clock className="w-4 h-4" />
+                        Due: {new Date(order.expectedDeliveryDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        {overdue && <span className="text-[9px] uppercase tracking-widest ml-1 animate-pulse">(Overdue)</span>}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-sm font-black text-muted-foreground/50">
+                        <Clock className="w-4 h-4" /> No Date
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[10px] font-bold text-muted-foreground bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">#{order.invoiceNumber}</span>
+                      {order.priority && order.priority !== 'Normal' && (
+                        <Badge variant="outline" className={cn("text-[8px] px-1.5 py-0.5 rounded-md font-bold tracking-wider uppercase border", getPriorityColor(order.priority))}>
+                          {order.priority}
                         </Badge>
                       )}
+                      {order.isDraft && (
+                        <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5 rounded-md font-medium">DRAFT</Badge>
+                      )}
                     </div>
-                    <div className="flex items-center gap-1 text-[9px] text-muted-foreground font-medium">
+                    <div className="flex items-center gap-1 text-[9px] text-muted-foreground font-medium mt-0.5">
                       <Calendar className="w-3 h-3" />
-                      {new Date(order.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                      <span className="text-muted-foreground/50">•</span>
-                      {new Date(order.createdAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                      Ordered: {new Date(order.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                     </div>
                   </div>
                 </td>
@@ -385,14 +461,23 @@ export default function SalesTable({
                   </Badge>
                 </td>
                 <td className="py-4 px-4 text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                        <MoreVertical className="w-4 h-4 text-muted-foreground" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56 rounded-2xl shadow-xl border-border/50 animate-in fade-in zoom-in-95 duration-200">
-                      <DropdownMenuLabel className="text-[10px] uppercase font-black text-muted-foreground tracking-widest px-4 py-3">Order Controls</DropdownMenuLabel>
+                  <div className="flex items-center justify-end gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => window.location.href = `/orders/${order.id}`} 
+                      className="h-8 text-xs rounded-lg font-bold gap-1.5 shadow-sm"
+                    >
+                      <Eye className="w-3.5 h-3.5" /> View
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                          <MoreVertical className="w-4 h-4 text-muted-foreground" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56 rounded-2xl shadow-xl border-border/50 animate-in fade-in zoom-in-95 duration-200">
+                        <DropdownMenuLabel className="text-[10px] uppercase font-black text-muted-foreground tracking-widest px-4 py-3">Order Controls</DropdownMenuLabel>
                       <DropdownMenuItem 
                         onClick={() => onEditOrder && onEditOrder(order.id)}
                         className="gap-3 px-4 py-2.5 cursor-pointer focus:bg-primary/5 focus:text-primary rounded-lg transition-colors"
@@ -445,12 +530,29 @@ export default function SalesTable({
                           <span className="font-bold text-sm">Cancel & Delete</span>
                         </DropdownMenuItem>
                       )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </td>
               </tr>
-            ))}
-          </tbody>
+              {allAssignments.length > 0 && (
+                <tr>
+                  <td colSpan={7} className="px-4 pb-4 pt-0 border-b-0 border-t-0">
+                    <WorkflowTracker 
+                      invoiceId={order.id}
+                      stitchAssignments={allAssignments as any}
+                      paymentStatus={order.paymentStatus}
+                      dueAmount={order.dueAmount || 0}
+                    />
+                  </td>
+                </tr>
+              )}
+              <tr className="h-4 bg-slate-100/70 dark:bg-slate-950/80 pointer-events-none">
+                <td colSpan={7} className="p-0 border-none"></td>
+              </tr>
+            </tbody>
+            );
+          })}
         </table>
       </div>
       <ConfirmDeleteDialog 

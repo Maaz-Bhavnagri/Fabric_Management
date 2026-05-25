@@ -33,6 +33,8 @@ import { Label } from '@/components/ui/label';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { useCameraContext } from '@/context/CameraContext';
 import MobileCameraButton from '@/components/camera/MobileCameraButton';

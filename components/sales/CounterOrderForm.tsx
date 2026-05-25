@@ -41,6 +41,13 @@ import {
   Trash2,
   Loader2,
   Package,
+  Check,
+  Tag,
+  Pencil,
+  X,
+  Scissors,
+  Clock,
+  AlertCircle,
 } from 'lucide-react'
 import imageCompression from 'browser-image-compression'
 import CustomerMeasurementsSection from './CustomerMeasurementsSection'
@@ -54,7 +61,9 @@ import type {
   CounterOrderRequest,
   CounterCustomerInput,
   CustomerMeasurementInput,
+  CounterLineItem,
 } from '@/lib/app-types'
+import { cn } from '@/lib/utils'
 
 // ── Types ──────────────────────────────────────────────────
 interface CounterLineItem {
@@ -278,6 +287,8 @@ export default function CounterOrderForm({
   const [selectedDraftId, setSelectedDraftId] = useState('')
   const [editTargetId, setEditTargetId] = useState<string | null>(null)
   const [billDiscount, setBillDiscount] = useState(0)
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string>('')
+  const [priority, setPriority] = useState<'Low' | 'Normal' | 'Urgent'>('Normal')
   const [suggestions, setSuggestions] = useState<InventoryRow[]>([])
   const [activeSuggestionRow, setActiveSuggestionRow] = useState<number | null>(null)
   const [customerSuggestions, setCustomerSuggestions] = useState<any[]>([])
@@ -340,7 +351,7 @@ export default function CounterOrderForm({
       items
         .filter((i) => i.fabricVariantId || i.isNewVariant || i.designName)
         .map((i) => ({
-          label: i.label || i.fabricVariantId,
+          label: i.label || i.designName || i.searchText || i.fabricVariantId,
           meters: i.meters,
           ratePerMeter: i.ratePerMeter,
           stitchingPrice: i.stitchingPrice || 0,
@@ -731,6 +742,9 @@ export default function CounterOrderForm({
       const payload: CounterOrderRequest = {
         invoiceNumber,
         walkIn,
+        customerId: walkIn ? undefined : customerInfo?.id || undefined,
+        expectedDeliveryDate: expectedDeliveryDate || undefined,
+        priority,
         customer: walkIn ? undefined : {
           fullName: customer.fullName || 'Customer',
           phone: customer.phone.trim(),
@@ -766,6 +780,8 @@ export default function CounterOrderForm({
         paymentStatus,
         isDraft: mode === 'draft',
         notes,
+        expectedDeliveryDate: expectedDeliveryDate || undefined,
+        priority: priority,
         meta: {
           salespersonName: salespersonName || undefined,
           priorityCustomer,
@@ -827,7 +843,7 @@ export default function CounterOrderForm({
 
   // ── Render ─────────────────────────────────────────────────
   return (
-    <div>
+    <div className="h-full overflow-y-auto">
 
       {/* ════ BODY ════════════════════════════════ */}
       <div className="bg-slate-50 dark:bg-slate-950">
@@ -948,6 +964,42 @@ export default function CounterOrderForm({
                   onChange={(e) => setCustomer({ ...customer, address: e.target.value })}
                   className="h-10"
                 />
+              </div>
+            </div>
+
+            {/* Row 3: Delivery Date + Priority */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1"><Clock className="w-3 h-3" /> Expected Delivery Date</label>
+                <Input
+                  type="date"
+                  value={expectedDeliveryDate ? new Date(expectedDeliveryDate).toISOString().split('T')[0] : ''}
+                  onChange={(e) => setExpectedDeliveryDate(e.target.value)}
+                  className="h-10"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Priority</label>
+                <div className="flex gap-2">
+                  {['Low', 'Normal', 'Urgent'].map(p => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPriority(p as 'Low' | 'Normal' | 'Urgent')}
+                      className={cn(
+                        "flex-1 h-10 rounded-xl border text-xs font-bold transition-all",
+                        priority === p 
+                          ? p === 'Urgent' ? "bg-red-50 text-red-600 border-red-300 dark:bg-red-900/30 dark:border-red-800" 
+                            : p === 'Low' ? "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:border-slate-700"
+                            : "bg-primary/10 text-primary border-primary"
+                          : "bg-white dark:bg-slate-950 text-muted-foreground border-border hover:bg-slate-50 dark:hover:bg-slate-900"
+                      )}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -1421,7 +1473,12 @@ export default function CounterOrderForm({
                               <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Design Name</label>
                               <Input
                                 value={item.designName || ''}
-                                onChange={e => { const n = [...items]; n[idx] = { ...n[idx], designName: e.target.value }; setItems(n); }}
+                                onChange={e => { 
+                                  const n = [...items]; 
+                                  const v = e.target.value;
+                                  n[idx] = { ...n[idx], designName: v, label: `${v || ''} – ${n[idx].category || ''} ${n[idx].color ? `(${n[idx].color})` : ''}`.trim() }; 
+                                  setItems(n); 
+                                }}
                                 className="h-8 text-sm"
                                 placeholder="e.g. Raymond Silk"
                               />
@@ -1430,7 +1487,12 @@ export default function CounterOrderForm({
                               <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Category</label>
                               <Input
                                 value={item.category || ''}
-                                onChange={e => { const n = [...items]; n[idx] = { ...n[idx], category: e.target.value }; setItems(n); }}
+                                onChange={e => { 
+                                  const n = [...items]; 
+                                  const v = e.target.value;
+                                  n[idx] = { ...n[idx], category: v, label: `${n[idx].designName || ''} – ${v || ''} ${n[idx].color ? `(${n[idx].color})` : ''}`.trim() }; 
+                                  setItems(n); 
+                                }}
                                 className="h-8 text-sm"
                                 placeholder="e.g. Cotton"
                               />
@@ -1439,7 +1501,12 @@ export default function CounterOrderForm({
                               <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Color</label>
                               <Input
                                 value={item.color || ''}
-                                onChange={e => { const n = [...items]; n[idx] = { ...n[idx], color: e.target.value }; setItems(n); }}
+                                onChange={e => { 
+                                  const n = [...items]; 
+                                  const v = e.target.value;
+                                  n[idx] = { ...n[idx], color: v, label: `${n[idx].designName || ''} – ${n[idx].category || ''} ${v ? `(${v})` : ''}`.trim() }; 
+                                  setItems(n); 
+                                }}
                                 className="h-8 text-sm"
                                 placeholder="e.g. Red"
                               />
@@ -1606,6 +1673,8 @@ export default function CounterOrderForm({
                         setNotes(d.notes || '')
                         setWalkIn(!d.customer)
                         if (d.customer) setCustomer((p) => ({ ...p, fullName: d.customer?.fullName ?? '', phone: d.customer?.phone ?? '' }))
+                        setExpectedDeliveryDate(d.expectedDeliveryDate || '')
+                        setPriority((d.priority as 'Low' | 'Normal' | 'Urgent') || 'Normal')
                         
                         // Fetch live stock for draft items
                         const loaded = await Promise.all((d.items || []).map(async (it: any) => {
@@ -1760,7 +1829,7 @@ export default function CounterOrderForm({
                           return (
                             <div key={i} className="grid grid-cols-[1fr_auto_auto] gap-2 px-4 py-3 items-start group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                               <div className="min-w-0 pr-4">
-                                <p className="text-xs font-bold text-foreground truncate">{item.label}</p>
+                                <p className="text-xs font-bold text-foreground truncate">{item.label || 'New Product'}</p>
                                 <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
                                   <span className="inline-block px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-bold">{item.meters}m</span>
                                   <span>×</span>

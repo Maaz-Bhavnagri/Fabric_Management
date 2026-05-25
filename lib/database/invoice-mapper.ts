@@ -9,6 +9,7 @@ export function mapInvoiceDbToApiDetail(inv: InvoiceDbShape): Record<string, unk
         email: inv.customer.email ?? undefined,
         address: inv.customer.address ?? undefined,
         city: inv.customer.city ?? undefined,
+        measurements: inv.customer.measurements ?? [],
       }
     : null
 
@@ -21,8 +22,11 @@ export function mapInvoiceDbToApiDetail(inv: InvoiceDbShape): Record<string, unk
     // Group order_stitch_entries by stitch_type_id for this invoice
     const stitchAssignments = stitchTypes.map(st => {
       const entriesForType = (inv.order_stitch_entries ?? []).filter(e => e.stitch_type_id === st.id)
+      const stLink = (row.invoice_item_stitch_types ?? []).find(l => l.stitch_type.id === st.id)
       
       return {
+        id: stLink?.id,
+        workflowStatus: stLink?.workflow_status ?? 'fabric_cutting',
         stitchTypeName: st.name,
         customerPrice: entriesForType.length > 0 ? entriesForType[0].customer_price_per_item : 0,
         tailors: entriesForType.map(e => ({
@@ -47,9 +51,11 @@ export function mapInvoiceDbToApiDetail(inv: InvoiceDbShape): Record<string, unk
             id: fv.id,
             variantName: fv.variant_name,
             color: fv.color,
+            imageUrl: fv.image_url,
             design: design
               ? {
                   designName: design.design_name,
+                  defaultImageUrl: design.default_image_url,
                 }
               : undefined,
           }
@@ -74,6 +80,8 @@ export function mapInvoiceDbToApiDetail(inv: InvoiceDbShape): Record<string, unk
     paymentMethod: inv.payment_method,
     paymentStatus: inv.payment_status,
     notes: inv.notes,
+    expectedDeliveryDate: inv.expected_delivery_date,
+    priority: inv.priority ?? 'Normal',
     createdAt: inv.created_at,
     customer,
     items,
@@ -82,12 +90,14 @@ export function mapInvoiceDbToApiDetail(inv: InvoiceDbShape): Record<string, unk
 
 type DesignNested = {
   design_name: string
+  default_image_url?: string | null
 }
 
 type FabricVariantNested = {
   id: string
   variant_name: string
   color: string
+  image_url?: string | null
   design?: DesignNested | null
 }
 
@@ -101,6 +111,8 @@ type InvoiceItemNested = {
   line_total: number
   fabric_variant?: FabricVariantNested | null
   invoice_item_stitch_types?: {
+    id: string
+    workflow_status: string
     stitch_type: { id: string; name: string }
   }[] | null
 }
@@ -111,6 +123,7 @@ type CustomerNested = {
   email: string | null
   address: string | null
   city: string | null
+  measurements?: any[] | null
 }
 
 type OrderStitchEntryNested = {
@@ -139,6 +152,8 @@ export type InvoiceDbShape = {
   payment_method: string
   payment_status: string
   notes: string | null
+  expected_delivery_date?: string | null
+  priority?: 'Low' | 'Normal' | 'Urgent' | string | null
   created_at: string
   customer?: CustomerNested | null
   items?: InvoiceItemNested[] | null

@@ -255,7 +255,10 @@ export async function fetchInvoiceDetail(admin: SupabaseClient, invoiceId: strin
     .select(
       `
       *,
-      customer:customers(*),
+      customer:customers(
+        *,
+        measurements:customer_measurements(*)
+      ),
       items:invoice_items(
         *,
         fabric_variant:fabric_variants(
@@ -263,6 +266,8 @@ export async function fetchInvoiceDetail(admin: SupabaseClient, invoiceId: strin
           design:fabric_designs(*)
         ),
         invoice_item_stitch_types(
+          id,
+          workflow_status,
           stitch_type:stitch_types(id, name)
         )
       ),
@@ -355,6 +360,8 @@ export async function createInvoice(data: CounterBillingCreateInput) {
     payment_method: data.paymentMethod,
     payment_status: data.paymentStatus,
     notes: data.notes ?? null,
+    expected_delivery_date: data.expectedDeliveryDate || null,
+    priority: data.priority || 'Normal',
   }
 
   const { data: invoiceRow, error: invErr } = await admin
@@ -621,6 +628,8 @@ export async function updateInvoice(orderId: string, data: CounterBillingCreateI
       payment_method: data.paymentMethod,
       payment_status: data.paymentStatus,
       notes: data.notes ?? null,
+      expected_delivery_date: data.expectedDeliveryDate || null,
+      priority: data.priority || 'Normal',
     })
     .eq('id', orderId)
   if (upErr) throw upErr

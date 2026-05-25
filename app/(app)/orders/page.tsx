@@ -39,6 +39,7 @@ export default function OrdersPage() {
   const { t } = useLanguage();
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [workflowFilter, setWorkflowFilter] = useState<string>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   
@@ -75,10 +76,37 @@ export default function OrdersPage() {
     }));
   }, [orders]);
 
-  const visibleOrders = useMemo(
-    () => sortByKey(filterRank(searchableOrders, searchTerm), sortKey, sortDir),
-    [searchableOrders, searchTerm, sortKey, sortDir]
-  );
+  const visibleOrders = useMemo(() => {
+    let filtered = filterRank(searchableOrders, searchTerm);
+    
+    if (workflowFilter !== 'all') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      filtered = filtered.filter(order => {
+        const isOverdue = order.expectedDeliveryDate && new Date(order.expectedDeliveryDate) < today && order.paymentStatus !== 'delivered';
+        const isDueToday = order.expectedDeliveryDate && new Date(order.expectedDeliveryDate) >= today && new Date(order.expectedDeliveryDate) < tomorrow;
+        const allAssignments = order.items?.flatMap(i => i.stitchAssignments || []) || [];
+        const isCompleted = allAssignments.length > 0 && allAssignments.every(a => a.workflowStatus === 'complete' || a.workflowStatus === 'delivered');
+        const isDelivered = allAssignments.length > 0 && allAssignments.every(a => a.workflowStatus === 'delivered');
+        const isInProgress = allAssignments.length > 0 && !isCompleted;
+
+        switch (workflowFilter) {
+          case 'urgent': return order.priority === 'Urgent';
+          case 'overdue': return isOverdue;
+          case 'due_today': return isDueToday;
+          case 'in_progress': return isInProgress;
+          case 'completed': return isCompleted && !isDelivered;
+          case 'delivered': return isDelivered;
+          default: return true;
+        }
+      });
+    }
+
+    return sortByKey(filtered, sortKey, sortDir);
+  }, [searchableOrders, searchTerm, sortKey, sortDir, workflowFilter]);
 
   const statuses = ['paid', 'pending'];
 
@@ -223,6 +251,23 @@ export default function OrdersPage() {
                   {status}
                 </Button>
               ))}
+            </div>
+
+            <div className="flex items-center gap-2 border border-border rounded-xl px-3 h-11 bg-slate-50/50">
+              <Select value={workflowFilter} onValueChange={setWorkflowFilter}>
+                <SelectTrigger className="border-none bg-transparent focus:ring-0 w-[140px] h-full shadow-none p-0 text-xs font-bold uppercase tracking-tight text-primary">
+                  <SelectValue placeholder="Workflow Filter" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="all">All Tracking</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="delivered">Delivered</SelectItem>
+                  <SelectItem value="due_today" className="text-amber-600 focus:text-amber-600 font-bold">Due Today</SelectItem>
+                  <SelectItem value="overdue" className="text-red-600 focus:text-red-600 font-bold">Overdue</SelectItem>
+                  <SelectItem value="urgent" className="text-red-600 focus:text-red-600 font-bold">Urgent Priority</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center gap-2 border border-border rounded-xl px-3 h-11 bg-slate-50/50">

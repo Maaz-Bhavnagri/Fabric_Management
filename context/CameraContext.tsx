@@ -97,7 +97,7 @@ export function CameraProvider({ children, adminUserId }: { children: React.Reac
 
     const deviceChannel = supabase.channel(`camera-device-${activeDevice.id}`);
     deviceChannel
-      .on('broadcast', { event: 'photo_ready' }, (msg) => {
+      .on('broadcast', { event: 'photo_ready' }, (msg: any) => {
         const payload = msg.payload as PhotoReadyPayload;
         
         // Resolve pending request promise if exists
@@ -110,7 +110,7 @@ export function CameraProvider({ children, adminUserId }: { children: React.Reac
         // Notify all photo-ready listeners
         photoListeners.current.forEach(listener => listener(payload));
       })
-      .subscribe((status) => {
+      .subscribe((status: string) => {
         setDeviceStatus(status === 'SUBSCRIBED' ? 'connected' : 'offline');
       });
 

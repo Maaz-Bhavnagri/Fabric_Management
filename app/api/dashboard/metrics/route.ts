@@ -83,7 +83,7 @@ export async function GET(request: Request) {
         .from('order_stitch_entries')
         .select(`
           id, invoice_id, total_tailor_amount, total_customer_amount, tailor_id, stitch_type_id,
-          tailors(full_name), invoice_item_stitch_types(name)
+          tailors(full_name), stitch_types(name)
         `)
         .in('invoice_id', invIds);
         
@@ -132,7 +132,7 @@ export async function GET(request: Request) {
 
       // Stitch Types
       const stId = se.stitch_type_id;
-      const stDataRaw = se.invoice_item_stitch_types;
+      const stDataRaw = se.stitch_types;
       const stName = (Array.isArray(stDataRaw) ? stDataRaw[0]?.name : stDataRaw?.name) || 'Unknown Stitch';
       
       const stData = stitchTypeMap.get(stId) ?? { name: stName, profit: 0 };

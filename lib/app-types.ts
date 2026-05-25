@@ -16,8 +16,20 @@ export interface DashboardMetrics {
   customerRetention?: { new: number, repeat: number, rate: number }
   colorPopularity?: Array<{ color: string, meters: number, revenue: number }>
   seasonalTrends?: Array<{ month: string, revenue: number, orders: number }>
+  overdueOrders?: number
+  urgentOrders?: number
+  averageOrderValue?: number
+  topTailors?: Array<{
+    tailorName: string
+    totalPayout: number
+    assignedItems: number
+    completionCount: number
+  }>
+  mostProfitableStitchTypes?: Array<{
+    stitchType: string
+    profit: number
+  }>
 }
-
 export interface InventoryRow {
   id: string
   designName: string

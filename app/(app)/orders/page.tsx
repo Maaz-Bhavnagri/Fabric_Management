@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
 import { useSalesData } from '@/hooks/useData';
+import { useQueryClient } from '@tanstack/react-query';
+import * as api from '@/lib/api-client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +41,14 @@ export default function OrdersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  
+  const queryClient = useQueryClient();
+
+  // Prefetch heavy dependencies for the add/edit order modal
+  const handlePrefetch = () => {
+    queryClient.prefetchQuery({ queryKey: ['customers'], queryFn: () => api.customersApi.getCustomers() });
+    queryClient.prefetchQuery({ queryKey: ['inventory'], queryFn: () => api.inventoryApi.getFabrics() });
+  };
 
   const {
     orders,
@@ -133,6 +143,8 @@ export default function OrdersPage() {
         </div>
         <Button
           onClick={() => setShowCreateModal(true)}
+          onMouseEnter={handlePrefetch}
+          onFocus={handlePrefetch}
           className="rounded-xl shadow-lg shadow-primary/20 gap-2 h-11 px-6 font-bold"
         >
           <Plus className="w-4 h-4" />

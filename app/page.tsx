@@ -4,25 +4,19 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/context/AuthContext';
 
 export default function Home() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
-
+  const { session, loading } = useAuth();
+  
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setIsAuthenticated(true);
-        router.push('/dashboard');
-      }
-    };
-    checkAuth();
-  }, [router, supabase]);
+    if (!loading && session) {
+      router.push('/dashboard');
+    }
+  }, [loading, session, router]);
 
-  if (isAuthenticated) {
+  if (loading || session) {
     return null;
   }
 

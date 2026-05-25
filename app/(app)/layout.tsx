@@ -3,8 +3,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Navbar } from '@/components/layout/Navbar';
-import { CameraProvider } from '@/context/CameraContext';
-import { AuthProvider } from '@/context/AuthContext';
 
 export default function AppLayout({
   children,
@@ -18,24 +16,20 @@ export default function AppLayout({
   // For now, let's leave adminUserId as null or update it inside CameraProvider.
 
   return (
-    <AuthProvider>
-      <CameraProvider adminUserId={null}>
-        <div className="flex h-screen bg-background">
-          <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
-          <div
-            className={`flex-1 flex flex-col transition-all duration-300 ${
-              collapsed ? 'md:ml-20' : 'md:ml-64'
-            }`}
-          >
-            <Navbar />
-            <main className="flex-1 overflow-auto pt-16">
-              <div className="p-4 md:p-8 max-w-7xl mx-auto w-full">
-                {children}
-              </div>
-            </main>
+    <div className="flex h-screen bg-background">
+      <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
+      <div
+        className={`flex-1 flex flex-col transition-all duration-300 ${
+          collapsed ? 'md:ml-20' : 'md:ml-64'
+        }`}
+      >
+        <Navbar />
+        <main className="flex-1 overflow-auto pt-16">
+          <div className="p-4 md:p-8 max-w-7xl mx-auto w-full">
+            {children}
           </div>
-        </div>
-      </CameraProvider>
-    </AuthProvider>
+        </main>
+      </div>
+    </div>
   );
 }

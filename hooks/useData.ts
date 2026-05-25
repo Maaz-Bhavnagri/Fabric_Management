@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '@/lib/api-client';
 import type {
   CounterOrderRequest,
@@ -13,249 +13,176 @@ import type {
 
 // Hook for dashboard data
 export function useDashboardData(range = '30d') {
-  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: metrics, isLoading: loading, error } = useQuery({
+    queryKey: ['dashboardMetrics', range],
+    queryFn: () => api.dashboardApi.getMetrics(range),
+  });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const data = await api.dashboardApi.getMetrics(range);
-        setMetrics(data);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch data');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [range]);
-
-  return { metrics, loading, error };
+  return { 
+    metrics: metrics || null, 
+    loading, 
+    error: error instanceof Error ? error.message : null 
+  };
 }
 
 // Hook for inventory data
 export function useInventoryData(searchTerm?: string) {
-  const [fabrics, setFabrics] = useState<InventoryRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const data = await api.inventoryApi.getFabrics(searchTerm);
-        setFabrics(data.fabrics || []);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch data');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const { data, isLoading: loading, error } = useQuery({
+    queryKey: ['inventory', searchTerm],
+    queryFn: () => api.inventoryApi.getFabrics(searchTerm),
+  });
 
-    fetchData();
-  }, [searchTerm]);
+  const fabrics = data?.fabrics || [];
 
-  const addFabric = async (fabric: unknown) => {
-    try {
-      const newFabric = await api.inventoryApi.addFabric(fabric);
-      setFabrics([...fabrics, newFabric]);
-      return newFabric;
-    } catch (err) {
-      throw err instanceof Error ? err : new Error('Failed to add fabric');
-    }
+  const addMutation = useMutation({
+    mutationFn: (fabric: unknown) => api.inventoryApi.addFabric(fabric),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['inventory'] }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: unknown }) => api.inventoryApi.updateFabric(id, updates),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['inventory'] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.inventoryApi.deleteFabric(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['inventory'] }),
+  });
+
+  return {
+    fabrics,
+    loading,
+    error: error instanceof Error ? error.message : null,
+    addFabric: (fabric: unknown) => addMutation.mutateAsync(fabric),
+    updateFabric: (id: string, updates: unknown) => updateMutation.mutateAsync({ id, updates }),
+    deleteFabric: (id: string) => deleteMutation.mutateAsync(id),
   };
-
-  const updateFabric = async (id: string, updates: unknown) => {
-    try {
-      const updated = await api.inventoryApi.updateFabric(id, updates);
-      setFabrics(fabrics.map((f) => (f.id === id ? updated : f)));
-      return updated;
-    } catch (err) {
-      throw err instanceof Error ? err : new Error('Failed to update fabric');
-    }
-  };
-
-  const deleteFabric = async (id: string) => {
-    try {
-      await api.inventoryApi.deleteFabric(id);
-      setFabrics(fabrics.filter((f) => f.id !== id));
-    } catch (err) {
-      throw err instanceof Error ? err : new Error('Failed to delete fabric');
-    }
-  };
-
-  return { fabrics, loading, error, addFabric, updateFabric, deleteFabric };
 }
 
 // Hook for sales data
 export function useSalesData(filterStatus?: string, includeDraft = true) {
-  const [orders, setOrders] = useState<InvoiceRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const data = await api.salesApi.getOrders(filterStatus, includeDraft);
-        setOrders(data.orders || []);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch data');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const { data, isLoading: loading, error } = useQuery({
+    queryKey: ['orders', filterStatus, includeDraft],
+    queryFn: () => api.salesApi.getOrders(filterStatus, includeDraft),
+  });
 
-    fetchData();
-  }, [filterStatus, includeDraft]);
+  const orders = data?.orders || [];
 
-  const updateOrderStatus = async (
-    id: string,
-    status: string
-  ) => {
-    try {
-      const updated = await api.salesApi.updateOrderStatus(id, status);
-      setOrders(orders.map((o) => (o.id === id ? updated : o)));
-      return updated;
-    } catch (err) {
-      throw err instanceof Error ? err : new Error('Failed to update order');
-    }
-  };
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => api.salesApi.updateOrderStatus(id, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardMetrics'] });
+    },
+  });
 
-  const createOrder = async (order: CounterOrderRequest): Promise<unknown> => {
-    try {
-      const newOrder = await api.salesApi.createOrder(order);
-      setOrders([newOrder, ...orders]);
-      return newOrder;
-    } catch (err) {
-      throw err instanceof Error ? err : new Error('Failed to create order');
-    }
-  };
+  const createOrderMutation = useMutation({
+    mutationFn: (order: CounterOrderRequest) => api.salesApi.createOrder(order),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardMetrics'] });
+    },
+  });
 
-  const updateOrder = async (id: string, order: CounterOrderRequest): Promise<unknown> => {
-    try {
-      const updated = await api.salesApi.updateOrder(id, order);
-      setOrders(orders.map(o => o.id === id ? updated : o));
-      return updated;
-    } catch (err) {
-      throw err instanceof Error ? err : new Error('Failed to update order');
-    }
-  };
+  const updateOrderMutation = useMutation({
+    mutationFn: ({ id, order }: { id: string; order: CounterOrderRequest }) => api.salesApi.updateOrder(id, order),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardMetrics'] });
+    },
+  });
+
+  const deleteOrderMutation = useMutation({
+    mutationFn: (id: string) => api.salesApi.deleteOrder(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardMetrics'] });
+    },
+  });
 
   const getCustomerByPhone = async (phone: string): Promise<CustomerQuickInfo | null> => {
+    // Proactively fetch and let queryClient cache if we want, or just return directly.
     return api.customersApi.getCustomerByPhone(phone);
   };
 
   const getOrderById = async (id: string): Promise<InvoiceDetail> => {
+    // Fetch directly, though we could use queryClient.fetchQuery here
     return api.salesApi.getOrderById(id);
   };
 
-  const deleteOrder = async (id: string): Promise<void> => {
-    try {
-      await api.salesApi.deleteOrder(id);
-      setOrders(orders.filter((o) => o.id !== id));
-    } catch (err) {
-      throw err instanceof Error ? err : new Error('Failed to delete order');
-    }
+  return {
+    orders,
+    loading,
+    error: error instanceof Error ? error.message : null,
+    updateOrderStatus: (id: string, status: string) => updateStatusMutation.mutateAsync({ id, status }),
+    createOrder: (order: CounterOrderRequest) => createOrderMutation.mutateAsync(order),
+    updateOrder: (id: string, order: CounterOrderRequest) => updateOrderMutation.mutateAsync({ id, order }),
+    deleteOrder: (id: string) => deleteOrderMutation.mutateAsync(id),
+    getCustomerByPhone,
+    getOrderById,
   };
-
-  return { orders, loading, error, updateOrderStatus, createOrder, updateOrder, deleteOrder, getCustomerByPhone, getOrderById };
 }
 
 // Hook for customers data
 export function useCustomersData(searchTerm?: string) {
-  const [customers, setCustomers] = useState<CustomerRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const data = await api.customersApi.getCustomers(searchTerm);
-        setCustomers(data.customers || []);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch data');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const { data, isLoading: loading, error } = useQuery({
+    queryKey: ['customers', searchTerm],
+    queryFn: () => api.customersApi.getCustomers(searchTerm),
+  });
 
-    fetchData();
-  }, [searchTerm]);
+  const customers = data?.customers || [];
 
-  const addCustomer = async (customer: unknown) => {
-    try {
-      const newCustomer = await api.customersApi.addCustomer(customer);
-      setCustomers([...customers, newCustomer]);
-      return newCustomer;
-    } catch (err) {
-      throw err instanceof Error ? err : new Error('Failed to add customer');
-    }
+  const addMutation = useMutation({
+    mutationFn: (customer: unknown) => api.customersApi.addCustomer(customer),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['customers'] }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: unknown }) => api.customersApi.updateCustomer(id, updates),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['customers'] }),
+  });
+
+  return {
+    customers,
+    loading,
+    error: error instanceof Error ? error.message : null,
+    addCustomer: (customer: unknown) => addMutation.mutateAsync(customer),
+    updateCustomer: (id: string, updates: unknown) => updateMutation.mutateAsync({ id, updates }),
   };
-
-  const updateCustomer = async (id: string, updates: unknown) => {
-    try {
-      const updated = await api.customersApi.updateCustomer(id, updates);
-      setCustomers(customers.map((c) => (c.id === id ? updated : c)));
-      return updated;
-    } catch (err) {
-      throw err instanceof Error ? err : new Error('Failed to update customer');
-    }
-  };
-
-  return { customers, loading, error, addCustomer, updateCustomer };
 }
 
 // Hook for suppliers data
 export function useSuppliersData(searchTerm?: string) {
-  const [suppliers, setSuppliers] = useState<SupplierRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const data = await api.suppliersApi.getSuppliers(searchTerm);
-        setSuppliers(data.suppliers || []);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch data');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const { data, isLoading: loading, error } = useQuery({
+    queryKey: ['suppliers', searchTerm],
+    queryFn: () => api.suppliersApi.getSuppliers(searchTerm),
+  });
 
-    fetchData();
-  }, [searchTerm]);
+  const suppliers = data?.suppliers || [];
 
-  const addSupplier = async (supplier: Omit<SupplierRow, 'id' | 'createdAt'>) => {
-    try {
-      const newSupplier = await api.suppliersApi.addSupplier(supplier);
-      setSuppliers([...suppliers, newSupplier]);
-      return newSupplier;
-    } catch (err) {
-      throw err instanceof Error ? err : new Error('Failed to add supplier');
-    }
+  const addMutation = useMutation({
+    mutationFn: (supplier: Omit<SupplierRow, 'id' | 'createdAt'>) => api.suppliersApi.addSupplier(supplier),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['suppliers'] }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: unknown }) => api.suppliersApi.updateSupplier(id, updates),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['suppliers'] }),
+  });
+
+  return {
+    suppliers,
+    loading,
+    error: error instanceof Error ? error.message : null,
+    addSupplier: (supplier: Omit<SupplierRow, 'id' | 'createdAt'>) => addMutation.mutateAsync(supplier),
+    updateSupplier: (id: string, updates: unknown) => updateMutation.mutateAsync({ id, updates }),
   };
-
-  const updateSupplier = async (id: string, updates: unknown) => {
-    try {
-      const updated = await api.suppliersApi.updateSupplier(id, updates);
-      setSuppliers(suppliers.map((s) => (s.id === id ? updated : s)));
-      return updated;
-    } catch (err) {
-      throw err instanceof Error ? err : new Error('Failed to update supplier');
-    }
-  };
-
-  return { suppliers, loading, error, addSupplier, updateSupplier };
 }

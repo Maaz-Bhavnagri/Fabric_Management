@@ -42,11 +42,7 @@ function mapMeasurement(m: CustomerMeasurementApi) {
     inseam: m.inseam,
     length: m.length,
     customNotes: m.custom_notes,
-    photoUrl: m.photo_url
-      ? m.photo_file_id
-        ? `/api/drive-image?id=${m.photo_file_id}`
-        : m.photo_url
-      : undefined,
+    photoUrl: m.photo_url,
     photoFileId: m.photo_file_id,
     photoName: m.photo_name,
   };
@@ -350,6 +346,16 @@ export async function DELETE(request: NextRequest) {
     }
 
     const admin = createAdminClient();
+    
+    // Cleanup measurement photos from Supabase Storage before deleting customer
+    const { data: measurements } = await admin.from('customer_measurements').select('photo_file_id').eq('customer_id', customerId);
+    if (measurements && measurements.length > 0) {
+      const pathsToDelete = measurements.map(m => m.photo_file_id).filter(Boolean) as string[];
+      if (pathsToDelete.length > 0) {
+        await admin.storage.from('customer-measurements').remove(pathsToDelete);
+      }
+    }
+
     const { error } = await admin.from('customers').delete().eq('id', customerId);
     if (error) throw error;
 

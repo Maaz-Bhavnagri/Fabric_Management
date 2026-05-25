@@ -24,51 +24,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'File size must be under 10MB' }, { status: 400 });
     }
 
-    // Check if Google Drive credentials are configured
-    const hasDriveCredentials =
-      !!process.env.GOOGLE_CLIENT_ID &&
-      !!process.env.GOOGLE_CLIENT_SECRET &&
-      !!process.env.GOOGLE_REFRESH_TOKEN &&
-      !!process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID;
-
-    if (!hasDriveCredentials) {
-      console.warn('[measurements/upload] Google Drive OAuth2 not fully configured. Using fallback or returning error.');
-      return NextResponse.json({
-        success: false,
-        driveNotConfigured: true,
-        error: 'Google Drive not configured. Please add CLIENT_ID, CLIENT_SECRET, and REFRESH_TOKEN to .env.',
-      }, { status: 200 });
-    }
-
-    const { uploadImage } = await import('@/lib/services/googleDriveService');
+    const { createAdminClient } = await import('@/lib/supabase/admin');
+    const admin = createAdminClient();
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
     // Slug: CustomerName_YYYY-MM-DD_measurement
     const safeName = customerName.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 30);
-    const dateStr = new Date().toISOString().split('T')[0];
-    const slug = `${safeName}_${dateStr}_measurement`;
+    const fileExt = file.name.split('.').pop() || 'webp';
+    const fileName = `${safeName}_${Date.now()}_measurement.${fileExt}`;
 
-    try {
-      const result = await uploadImage(buffer, file.type, slug, 'Customers');
-
-      return NextResponse.json({
-        success: true,
-        data: {
-          photoUrl: result.webViewLink,
-          photoFileId: result.fileId,
-          photoName: `${slug}.jpg`,
-        },
+    const { data: uploadData, error: uploadError } = await admin.storage
+      .from('customer-measurements')
+      .upload(fileName, buffer, {
+        contentType: file.type || 'image/webp',
+        upsert: false,
       });
-    } catch (driveError: unknown) {
-      const msg = driveError instanceof Error ? driveError.message : String(driveError);
-      console.error('[measurements/upload] Google Drive error:', msg);
+
+    if (uploadError) {
+      console.error('[measurements/upload] Supabase upload failed:', uploadError);
       return NextResponse.json({
         success: false,
-        error: 'Google Drive upload failed. Your measurement text will still be saved.',
-        details: msg,
+        error: 'Storage upload failed. Your measurement text will still be saved.',
+        details: uploadError.message,
       }, { status: 200 }); // non-fatal 200
     }
+
+    const { data: urlData } = admin.storage.from('customer-measurements').getPublicUrl(uploadData.path);
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        photoUrl: urlData.publicUrl,
+        photoFileId: uploadData.path, // We store path as photoFileId so we can delete it later
+        photoName: fileName,
+      },
+    });
   } catch (error: unknown) {
     console.error('Measurement upload error:', error);
     return NextResponse.json(

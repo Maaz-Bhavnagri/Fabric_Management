@@ -107,7 +107,7 @@ export function Navbar() {
         </div>
       </div>
 
-      <div className="flex md:hidden font-bold text-primary text-xl tracking-tight">KapadMitra</div>
+      <div className="flex md:hidden font-bold text-primary text-xl tracking-tight pl-10">KapadMitra</div>
 
       {/* Right side: Actions */}
       <div className="flex items-center gap-2 md:gap-4">

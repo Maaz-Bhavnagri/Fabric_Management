@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import imageCompression from 'browser-image-compression';
 import { useLanguage } from '@/context/LanguageContext';
 import type { InventoryRow } from '@/lib/app-types';
 import { Button } from '@/components/ui/button';
@@ -50,7 +51,6 @@ interface EditFabricModalProps {
     stockMeters?: number;
     lowStockThreshold?: number;
     imageUrl?: string;
-    googleDriveFileId?: string;
   }) => Promise<void>;
 }
 
@@ -69,7 +69,6 @@ export default function EditFabricModal({ fabric, onClose, onSave }: EditFabricM
     stockMeters: String(fabric.stockMeters ?? ''),
     lowStockThreshold: String(fabric.lowStockThreshold ?? 10),
     imageUrl: fabric.imageUrl || '',
-    googleDriveFileId: fabric.googleDriveFileId || '',
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -93,11 +92,22 @@ export default function EditFabricModal({ fabric, onClose, onSave }: EditFabricM
     if (!file) return;
 
     setIsUploading(true);
-    const body = new FormData();
-    body.append('file', file);
-    body.append('fabricName', formData.name || 'Updated_Fabric');
-
+    
     try {
+      const options = {
+        maxSizeMB: 0.5,
+        maxWidthOrHeight: 1200,
+        useWebWorker: true,
+        fileType: 'image/webp',
+        initialQuality: 0.7,
+      };
+      const compressedBlob = await imageCompression(file, options);
+      const compressedFile = new File([compressedBlob], file.name.replace(/\.[^/.]+$/, "") + ".webp", { type: 'image/webp' });
+
+      const body = new FormData();
+      body.append('file', compressedFile);
+      body.append('fabricName', formData.name || 'Updated_Fabric');
+
       const res = await fetch('/api/inventory/upload', {
         method: 'POST',
         body,
@@ -106,8 +116,7 @@ export default function EditFabricModal({ fabric, onClose, onSave }: EditFabricM
       if (json.success) {
         setFormData(prev => ({
           ...prev,
-          imageUrl: json.data.imageUrl,
-          googleDriveFileId: json.data.googleDriveFileId
+          imageUrl: json.data.imageUrl
         }));
       }
     } catch (err) {
@@ -131,7 +140,6 @@ export default function EditFabricModal({ fabric, onClose, onSave }: EditFabricM
         stockMeters: parseFloat(formData.stockMeters || '0'),
         lowStockThreshold: parseFloat(formData.lowStockThreshold || '10'),
         imageUrl: formData.imageUrl,
-        googleDriveFileId: formData.googleDriveFileId,
       });
       onClose();
     } catch (err: any) {
@@ -311,11 +319,11 @@ export default function EditFabricModal({ fabric, onClose, onSave }: EditFabricM
                   <div className="text-left">
                     <div className="flex items-center gap-2 text-emerald-500 mb-0.5">
                       <Check className="w-4 h-4" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Linked to Drive</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest">Image Saved</span>
                     </div>
                     <Button variant="ghost" size="sm" className="h-6 px-0 text-[10px] text-red-500 hover:bg-transparent" onClick={(e) => {
                       e.stopPropagation();
-                      setFormData({ ...formData, imageUrl: '', googleDriveFileId: '' });
+                      setFormData({ ...formData, imageUrl: '' });
                     }}>
                       Remove Image
                     </Button>

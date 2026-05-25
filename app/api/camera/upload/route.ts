@@ -41,16 +41,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Photo file required' }, { status: 400 });
     }
 
-    const fileExt = file.name.split('.').pop() || 'jpg';
+    const fileExt = file.name.split('.').pop() || 'webp';
     const fileName = `camera/${device.admin_user_id}/${context}/${Date.now()}.${fileExt}`;
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = new Uint8Array(arrayBuffer);
 
+    let targetBucket = 'customer-measurements';
+    if (context === 'order') targetBucket = 'order-images';
+    else if (context === 'fabric') targetBucket = 'fabric-images';
+
     const { data: uploadData, error: uploadError } = await admin.storage
-      .from('measurements')
+      .from(targetBucket)
       .upload(fileName, buffer, {
-        contentType: file.type || 'image/jpeg',
+        contentType: file.type || 'image/webp',
         upsert: false,
       });
 
@@ -62,7 +66,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: urlData } = admin.storage.from('measurements').getPublicUrl(uploadData.path);
+    const { data: urlData } = admin.storage.from(targetBucket).getPublicUrl(uploadData.path);
     const publicUrl = urlData.publicUrl;
 
     try {

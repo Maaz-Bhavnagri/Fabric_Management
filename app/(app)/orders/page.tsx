@@ -258,15 +258,15 @@ export default function OrdersPage() {
 
       {/* ══ ADD ORDER WORKSPACE MODAL ══════════════════════ */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto p-0.5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setShowCreateModal(false)}
           />
 
-          {/* Modal panel — full page size */}
-          <div className="relative min-h-full w-full bg-white dark:bg-slate-950 rounded-xl shadow-2xl flex flex-col animate-in zoom-in-95 fade-in duration-200">
+          {/* Modal panel */}
+          <div className="relative h-full w-full sm:h-[95vh] sm:max-w-6xl bg-white dark:bg-slate-950 sm:rounded-2xl shadow-2xl flex flex-col animate-in slide-in-from-bottom-full sm:zoom-in-95 duration-300">
 
             {/* Header */}
             <div className="shrink-0 flex items-center gap-3 px-6 py-4 border-b border-border bg-white dark:bg-slate-900">

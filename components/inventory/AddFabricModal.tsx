@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
+import imageCompression from 'browser-image-compression';
 import { useLanguage } from '@/context/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,7 +49,6 @@ interface AddFabricModalProps {
     stockMeters: number;
     minStockLevel: number;
     imageUrl?: string;
-    googleDriveFileId?: string;
   }) => Promise<void>;
 }
 
@@ -70,7 +70,6 @@ export default function AddFabricModal({
     stockMeters: '',
     minStockLevel: '10',
     imageUrl: '',
-    googleDriveFileId: '',
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -97,11 +96,22 @@ export default function AddFabricModal({
     if (!file) return;
 
     setIsUploading(true);
-    const body = new FormData();
-    body.append('file', file);
-    body.append('fabricName', formData.name || 'New_Fabric');
-
+    
     try {
+      const options = {
+        maxSizeMB: 0.5,
+        maxWidthOrHeight: 1200,
+        useWebWorker: true,
+        fileType: 'image/webp',
+        initialQuality: 0.7,
+      };
+      const compressedBlob = await imageCompression(file, options);
+      const compressedFile = new File([compressedBlob], file.name.replace(/\.[^/.]+$/, "") + ".webp", { type: 'image/webp' });
+
+      const body = new FormData();
+      body.append('file', compressedFile);
+      body.append('fabricName', formData.name || 'New_Fabric');
+
       const res = await fetch('/api/inventory/upload', {
         method: 'POST',
         body,
@@ -110,8 +120,7 @@ export default function AddFabricModal({
       if (json.success) {
         setFormData(prev => ({
           ...prev,
-          imageUrl: json.data.imageUrl,
-          googleDriveFileId: json.data.googleDriveFileId
+          imageUrl: json.data.imageUrl
         }));
       }
     } catch (err) {
@@ -135,7 +144,6 @@ export default function AddFabricModal({
         stockMeters: parseFloat(formData.stockMeters || '0'),
         minStockLevel: parseFloat(formData.minStockLevel || '10'),
         imageUrl: formData.imageUrl,
-        googleDriveFileId: formData.googleDriveFileId,
       });
     } catch (err: any) {
       setError(err.message || 'Failed to add product. Please check your connection.');
@@ -361,7 +369,7 @@ export default function AddFabricModal({
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                       <X className="text-white w-5 h-5" onClick={(e) => {
                         e.stopPropagation();
-                        setFormData({ ...formData, imageUrl: '', googleDriveFileId: '' });
+                        setFormData({ ...formData, imageUrl: '' });
                       }} />
                     </div>
                   </div>
@@ -390,7 +398,7 @@ export default function AddFabricModal({
                 <MobileCameraButton
                   context="product"
                   label="Take Product Photo"
-                  onPhotoReady={(url) => setFormData(prev => ({ ...prev, imageUrl: url, googleDriveFileId: '' }))}
+                  onPhotoReady={(url) => setFormData(prev => ({ ...prev, imageUrl: url }))}
                   adminUserId={adminUserId}
                   variant="outline"
                   size="sm"

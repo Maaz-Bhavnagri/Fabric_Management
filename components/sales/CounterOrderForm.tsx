@@ -39,14 +39,10 @@ import {
   BadgeCheck,
   Plus,
   Trash2,
-  Pencil,
-  Check,
   Loader2,
   Package,
-  Tag,
-  X,
-  Scissors,
 } from 'lucide-react'
+import imageCompression from 'browser-image-compression'
 import CustomerMeasurementsSection from './CustomerMeasurementsSection'
 import StitchTypesSelector from './StitchTypesSelector'
 import { inventoryApi } from '@/lib/api-client'
@@ -700,8 +696,18 @@ export default function CounterOrderForm({
       let resolvedMeasurement = { ...measurement }
       if (!walkIn && measurement.photoFile) {
         try {
+          const options = {
+            maxSizeMB: 0.5,
+            maxWidthOrHeight: 1000,
+            useWebWorker: true,
+            fileType: 'image/webp',
+            initialQuality: 0.6,
+          }
+          const compressedBlob = await imageCompression(measurement.photoFile, options)
+          const compressedFile = new File([compressedBlob], measurement.photoFile.name.replace(/\.[^/.]+$/, "") + ".webp", { type: 'image/webp' })
+
           const fd = new FormData()
-          fd.append('file', measurement.photoFile)
+          fd.append('file', compressedFile)
           fd.append('customerName', customer.fullName || 'Customer')
           const res = await fetch('/api/measurements/upload', { method: 'POST', body: fd })
           const json = await res.json()
@@ -849,7 +855,7 @@ export default function CounterOrderForm({
             )}
 
             {/* Row 1: Name + Phone */}
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div className="relative">
                 <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t('sales.quick.customerName', 'Customer Name')}</label>
                 <Input
@@ -923,7 +929,7 @@ export default function CounterOrderForm({
             </div>
 
             {/* Row 2: Email + Address */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t('sales.quick.emailOptional', 'Email (optional)')}</label>
                 <Input
@@ -974,7 +980,7 @@ export default function CounterOrderForm({
               </Button>
             </div>
 
-            <div className="grid grid-cols-[2fr_80px_90px_80px_70px_56px] gap-2 px-2 mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <div className="hidden md:grid grid-cols-[2fr_80px_90px_80px_70px_56px] gap-2 px-2 mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               <span>{t('sales.quick.productFieldLabel', 'Product')}</span>
               <span className="text-center">{t('sales.quick.meters', 'Meters')}</span>
               <span className="text-center">{t('sales.quick.rate', 'Rate/M (₹)')}</span>
@@ -1011,7 +1017,7 @@ export default function CounterOrderForm({
                     key={idx}
                     className={`rounded-xl border p-2.5 transition-all ${item.isLocked ? 'bg-white dark:bg-slate-900 border-border' : 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800'}`}
                   >
-                    <div className="grid grid-cols-[2fr_80px_90px_80px_70px_56px] gap-2 items-start">
+                    <div className="flex flex-col md:grid md:grid-cols-[2fr_80px_90px_80px_70px_56px] gap-2 md:items-start">
                       {/* Product search */}
                       <div className="relative">
                         <Input
@@ -1136,6 +1142,7 @@ export default function CounterOrderForm({
                             setItems(n) 
                           }}
                           className={`h-9 text-center text-sm px-2 ${hasStockError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                          placeholder="Meters"
                         />
                         {hasStockError && (
                           <p className="mt-1 text-[10px] font-semibold text-red-600">

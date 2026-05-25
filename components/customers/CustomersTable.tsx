@@ -54,7 +54,98 @@ export default function CustomersTable({ customers, onEdit }: CustomersTableProp
 
   return (
     <>
-      <div className="overflow-x-auto rounded-2xl border border-border shadow-sm mt-6">
+      {/* 📱 Mobile Card View */}
+      <div className="grid grid-cols-1 gap-4 md:hidden mt-6">
+        {customers.map((customer) => (
+          <div key={customer.id} className="bg-card rounded-2xl border border-border p-4 shadow-sm flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg shrink-0">
+                {customer.fullName.charAt(0)}
+              </div>
+              <div className="flex flex-col flex-1 min-w-0">
+                <span className="text-base font-bold text-foreground line-clamp-1">{customer.fullName}</span>
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight">Active Customer</span>
+              </div>
+              <div className="flex flex-col items-end">
+                 <span className="text-sm font-black text-primary">₹{(customer.lifetimeValue || 0).toLocaleString()}</span>
+                 <span className="text-[9px] text-muted-foreground uppercase">LTV</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-border/50">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
+                <Phone className="w-3.5 h-3.5 text-primary/70" />
+                <span>{customer.phone}</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <MapPin className="w-3.5 h-3.5" />
+                <span className="truncate">{customer.city || '—'}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {customer.measurement?.photoUrl ? (
+                <button
+                  onClick={() => setViewingPhoto({ src: customer.measurement!.photoUrl!, name: customer.fullName })}
+                  className="relative group/photo w-10 h-10 rounded-xl overflow-hidden border border-border shrink-0"
+                >
+                  <img src={customer.measurement.photoUrl} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/0 group-hover/photo:bg-black/30 flex items-center justify-center transition-all">
+                    <ZoomIn className="w-3 h-3 text-white opacity-0 group-hover/photo:opacity-100" />
+                  </div>
+                </button>
+              ) : hasMeasurements(customer.measurement) ? (
+                <div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
+                  <Ruler className="w-4 h-4 text-indigo-500" />
+                </div>
+              ) : null}
+              {hasMeasurements(customer.measurement) ? (
+                <div className="flex flex-wrap gap-1">
+                  {FIELDS.filter(f => customer.measurement![f.key] != null).slice(0, 4).map(f => (
+                    <span key={f.key} className="text-[9px] font-black uppercase bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 px-1.5 py-0.5 rounded-md">
+                      {f.label}: {customer.measurement![f.key]}"
+                    </span>
+                  ))}
+                  {FIELDS.filter(f => customer.measurement![f.key] != null).length > 4 && (
+                    <span className="text-[9px] font-black text-muted-foreground px-1 py-0.5">
+                      +{FIELDS.filter(f => customer.measurement![f.key] != null).length - 4}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <span className="text-xs text-muted-foreground opacity-60">No measurements</span>
+              )}
+            </div>
+
+            <div className="flex justify-between items-center mt-1 border-t border-border/50 pt-3">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Calendar className="w-3.5 h-3.5" />
+                {new Date(customer.createdAt).toLocaleDateString()}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => onEdit?.(customer)} className="h-8 text-xs font-bold gap-1.5 rounded-lg">
+                  <Pencil className="w-3.5 h-3.5" /> Edit
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="secondary" size="icon" className="w-8 h-8 rounded-lg">
+                      <MoreVertical className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="rounded-xl">
+                    <DropdownMenuItem className="gap-2 font-medium">
+                      <IndianRupee className="w-4 h-4" /> View Transactions
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 💻 Desktop Table View */}
+      <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm mt-6">
         <table className="w-full">
           <thead>
             <tr className="bg-slate-50/50 dark:bg-slate-900/50 border-b border-border">

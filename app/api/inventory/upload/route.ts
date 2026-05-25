@@ -20,22 +20,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Only image files are allowed' }, { status: 400 });
     }
 
-    const { uploadImage } = await import('@/lib/services/googleDriveService');
+    const { createAdminClient } = await import('@/lib/supabase/admin');
+    const admin = createAdminClient();
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
     // Slug: FabricName_YYYY-MM-DD
     const safeName = fabricName.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 30);
-    const dateStr = new Date().toISOString().split('T')[0];
-    const slug = `${safeName}_${dateStr}`;
+    const fileExt = file.name.split('.').pop() || 'webp';
+    const fileName = `${safeName}_${Date.now()}.${fileExt}`;
 
-    const result = await uploadImage(buffer, file.type, slug, 'Products');
+    const { data: uploadData, error: uploadError } = await admin.storage
+      .from('fabric-images')
+      .upload(fileName, buffer, {
+        contentType: file.type || 'image/webp',
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw new Error(`Supabase upload failed: ${uploadError.message}`);
+    }
+
+    const { data: urlData } = admin.storage.from('fabric-images').getPublicUrl(uploadData.path);
 
     return NextResponse.json({
       success: true,
       data: {
-        imageUrl: `/api/drive-image?id=${result.fileId}`,
-        googleDriveFileId: result.fileId,
+        imageUrl: urlData.publicUrl,
+        supabasePath: uploadData.path,
       },
     });
   } catch (error: unknown) {

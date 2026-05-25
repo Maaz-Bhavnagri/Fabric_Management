@@ -7,6 +7,7 @@ import {
   RotateCcw, Send
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
+import imageCompression from 'browser-image-compression';
 
 type CaptureState = 'idle' | 'standby' | 'requested' | 'preview' | 'uploading' | 'done' | 'error';
 
@@ -149,27 +150,23 @@ export default function CameraCapturePage() {
     }
   }, [facingMode, state, isVerified, startCamera]);
 
-  const compressImage = (dataUrl: string): Promise<{ blob: Blob; url: string }> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const maxSize = 1920;
-        let { width, height } = img;
-        if (width > maxSize || height > maxSize) {
-          if (width > height) { height = (height / width) * maxSize; width = maxSize; }
-          else { width = (width / height) * maxSize; height = maxSize; }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, 0, 0, width, height);
-        canvas.toBlob((blob) => {
-          if (blob) resolve({ blob, url: canvas.toDataURL('image/jpeg', 0.85) });
-        }, 'image/jpeg', 0.85);
-      };
-      img.src = dataUrl;
-    });
+  const compressImage = async (dataUrl: string): Promise<{ blob: Blob; url: string }> => {
+    // Convert base64 dataUrl to File
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const file = new File([blob], 'capture.jpg', { type: 'image/jpeg' });
+
+    const options = {
+      maxSizeMB: 0.5,
+      maxWidthOrHeight: 1200,
+      useWebWorker: true,
+      fileType: 'image/webp',
+      initialQuality: 0.7,
+    };
+    
+    const compressedBlob = await imageCompression(file, options);
+    const objectUrl = URL.createObjectURL(compressedBlob);
+    return { blob: compressedBlob, url: objectUrl };
   };
 
   const capture = async () => {
@@ -203,7 +200,8 @@ export default function CameraCapturePage() {
 
     try {
       const formData = new FormData();
-      formData.append('photo', capturedBlob, `photo_${Date.now()}.jpg`);
+      const fileExt = capturedBlob.type === 'image/webp' ? 'webp' : 'jpg';
+      formData.append('photo', capturedBlob, `photo_${Date.now()}.${fileExt}`);
       formData.append('context', captureRequest?.context || 'general');
       formData.append('contextId', '');
       formData.append('requestId', captureRequest?.requestId || '');

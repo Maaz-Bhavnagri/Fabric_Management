@@ -159,7 +159,91 @@ export default function SalesTable({
 
   return (
     <>
-      <div className="overflow-x-auto rounded-3xl border border-border/50 shadow-sm mt-6">
+      {/* 📱 Mobile Card View */}
+      <div className="grid grid-cols-1 gap-4 md:hidden mt-6">
+        {orders.map((order) => (
+          <div key={order.id} className="bg-card rounded-2xl border border-border p-4 shadow-sm flex flex-col gap-3">
+            <div className="flex justify-between items-start">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black text-foreground">#{order.invoiceNumber}</span>
+                  {order.isDraft && (
+                    <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5 rounded-md font-medium">DRAFT</Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium mt-1">
+                  <Calendar className="w-3 h-3" />
+                  {new Date(order.createdAt).toLocaleDateString()}
+                  <span className="text-muted-foreground/50">•</span>
+                  {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+              <Badge variant="outline" className={cn("px-2 py-0.5 rounded-full text-[9px] font-black uppercase border shadow-sm", getStatusColor(order.paymentStatus || 'pending'))}>
+                {t(`sales.${order.paymentStatus || 'pending'}`)}
+              </Badge>
+            </div>
+            
+            <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-900 p-2.5 rounded-xl border border-border/50">
+               <div className="flex items-center gap-2">
+                 <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                   <User className="w-4 h-4" />
+                 </div>
+                 <div className="flex flex-col">
+                   <span className="text-sm font-bold text-foreground line-clamp-1">{order.customer?.fullName || 'Walk-in'}</span>
+                   {order.customer?.phone && <span className="text-[10px] text-muted-foreground">{order.customer.phone}</span>}
+                 </div>
+               </div>
+               <div className="flex flex-col items-end">
+                 <span className="text-sm font-black text-primary">₹{(order.grandTotal || 0).toLocaleString()}</span>
+                 <div className="flex items-center gap-1 mt-0.5">
+                   <Badge variant="outline" className={cn("px-1.5 py-0 text-[8px] font-black uppercase tracking-tighter border", getPaymentMethodColor(order.paymentMethod))}>
+                     {order.paymentMethod || 'cash'}
+                   </Badge>
+                 </div>
+               </div>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
+                <Package className="w-3.5 h-3.5" />
+                <span>{order.itemsCount || 0} items</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {onEditOrder && (
+                  <Button variant="outline" size="sm" onClick={() => onEditOrder(order.id)} className="h-8 text-xs rounded-lg font-bold gap-1.5">
+                    <FileEdit className="w-3.5 h-3.5" /> Edit
+                  </Button>
+                )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="secondary" size="icon" className="w-8 h-8 rounded-lg">
+                      <MoreVertical className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                    <DropdownMenuItem onClick={() => handleDownload(order)} className="gap-2 font-medium">
+                      {downloadingId === order.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Download
+                    </DropdownMenuItem>
+                    {onUpdateStatus && order.paymentStatus !== 'paid' && (
+                      <DropdownMenuItem onClick={() => onUpdateStatus(order.id, 'paid')} className="gap-2 font-medium text-emerald-600">
+                        <CheckCircle2 className="w-4 h-4" /> Mark as Paid
+                      </DropdownMenuItem>
+                    )}
+                    {onDeleteOrder && (
+                      <DropdownMenuItem onClick={() => setDeleteId(order.id)} className="gap-2 font-medium text-red-600">
+                        <Trash2 className="w-4 h-4" /> Delete Order
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 💻 Desktop Table View */}
+      <div className="hidden md:block overflow-x-auto rounded-3xl border border-border/50 shadow-sm mt-6">
         <table className="w-full">
           <thead>
             <tr className="bg-slate-50/50 dark:bg-slate-900/50 border-b border-border">

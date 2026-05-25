@@ -13,7 +13,6 @@ const fabricSchema = z.object({
   stockMeters: z.number().nonnegative().default(0),
   minStockLevel: z.number().nonnegative().default(10),
   imageUrl: z.string().optional(),
-  googleDriveFileId: z.string().optional(),
 });
 
 function normalizeCategory(cat: string): string {
@@ -34,7 +33,6 @@ function mapVariantToRow(v: {
   stock_meters: number;
   low_stock_threshold: number;
   image_url: string | null;
-  google_drive_file_id: string | null;
   barcode: string | null;
   created_at: string;
   design?: {
@@ -56,8 +54,7 @@ function mapVariantToRow(v: {
     sellingPricePerMeter: v.selling_price_per_meter,
     stockMeters: v.stock_meters,
     lowStockThreshold: v.low_stock_threshold,
-    imageUrl: v.google_drive_file_id ? `/api/drive-image?id=${v.google_drive_file_id}` : v.image_url,
-    googleDriveFileId: v.google_drive_file_id,
+    imageUrl: v.image_url,
     createdAt: new Date(v.created_at).toISOString(),
   };
 }
@@ -171,7 +168,6 @@ export async function POST(request: NextRequest) {
       stockMeters,
       minStockLevel,
       imageUrl,
-      googleDriveFileId,
     } = parsed.data;
 
     const normalizedCategory = normalizeCategory(category);
@@ -217,7 +213,6 @@ export async function POST(request: NextRequest) {
         stock_meters: stockMeters,
         low_stock_threshold: minStockLevel,
         image_url: imageUrl ?? null,
-        google_drive_file_id: googleDriveFileId ?? null,
       })
       .select('*, design:fabric_designs(*)')
       .single();
@@ -267,7 +262,7 @@ export async function PUT(request: NextRequest) {
 
     const { data: v, error: ve } = await admin
       .from('fabric_variants')
-      .select('id, fabric_design_id')
+      .select('id, fabric_design_id, image_url')
       .eq('id', variantId)
       .single();
     if (ve) throw ve;
@@ -287,7 +282,18 @@ export async function PUT(request: NextRequest) {
     if (purchasePricePerMeter !== undefined) vpatch.purchase_price_per_meter = purchasePricePerMeter;
     if (stockMeters !== undefined) vpatch.stock_meters = stockMeters;
     if (isActive !== undefined) vpatch.is_active = isActive;
-    if (imageUrl !== undefined) vpatch.image_url = imageUrl;
+    if (imageUrl !== undefined) {
+      if (v.image_url && v.image_url !== imageUrl) {
+        // Delete old image
+        const matchStr = `/object/public/fabric-images/`;
+        const idx = v.image_url.indexOf(matchStr);
+        if (idx !== -1) {
+          const path = v.image_url.substring(idx + matchStr.length);
+          await admin.storage.from('fabric-images').remove([path]);
+        }
+      }
+      vpatch.image_url = imageUrl;
+    }
     if (lowStockThreshold !== undefined) vpatch.low_stock_threshold = lowStockThreshold;
 
     const { data: updated, error: upe } = await admin
@@ -323,7 +329,17 @@ export async function DELETE(request: NextRequest) {
     }
 
     const admin = createAdminClient();
-    const { error } = await admin.from('fabric_variants').update({ is_active: false }).eq('id', variantId);
+    const { data: v, error: fetchErr } = await admin.from('fabric_variants').select('image_url').eq('id', variantId).single();
+    if (!fetchErr && v && v.image_url) {
+        const matchStr = `/object/public/fabric-images/`;
+        const idx = v.image_url.indexOf(matchStr);
+        if (idx !== -1) {
+          const path = v.image_url.substring(idx + matchStr.length);
+          await admin.storage.from('fabric-images').remove([path]);
+        }
+    }
+
+    const { error } = await admin.from('fabric_variants').update({ is_active: false, image_url: null }).eq('id', variantId);
     if (error) throw error;
 
     return NextResponse.json({ success: true });
